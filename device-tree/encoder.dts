@@ -8,15 +8,15 @@
         compatible = "encoder";
         reg = <0x0 0x80000000 0x0 0x1000>;
     };
-	  debouncer_0 {
+    debouncer_0 {
         compatible = "debouncer";
         interrupts = <0 89 1>;
-		    interrupt-parent = <&gic>;
+        interrupt-parent = <&gic>;
     };
-	  debouncer_1 {
+    debouncer_1 {
         compatible = "debouncer";
         interrupts = <0 90 1>;
-		    interrupt-parent = <&gic>;
+        interrupt-parent = <&gic>;
     };
 };
 
