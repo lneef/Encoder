@@ -29,6 +29,7 @@ static int encoder_driver_probe(struct platform_device *pdev) {
     goto end;
   }
   info->name = "encoder";
+  info->version = "0.0.1";
   resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
   if(!resource){
     retval = -ENODEV;
@@ -68,7 +69,7 @@ static int encoder_driver_remove(struct platform_device* dev)
         return -ENODEV;
     }
     uio_unregister_device(info);
-    devm_iounmap(info->mem[0].internal_addr);
+    devm_iounmap(&dev->dev, info->mem[0].internal_addr);
     return 0;
 }
 #endif
