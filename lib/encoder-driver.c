@@ -41,6 +41,7 @@ static int encoder_driver_probe(struct platform_device *pdev) {
   info->mem[0].internal_addr = devm_ioremap_resource(&pdev->dev, resource);
   dev_set_drvdata(&pdev->dev, info);
   retval = uio_register_device(&pdev->dev, info);
+  printk("encoder_driver: registered %llu bytes mmio at 0x%lx\n", info->mem[0].size, (unsigned long)info->mem[0].internal_addr);
   if(retval){
       devm_iounmap(&pdev->dev, info->mem[0].internal_addr);
   }
