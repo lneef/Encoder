@@ -38,8 +38,6 @@ static int encoder_driver_probe(struct platform_device *pdev) {
   info->mem[0].size = resource_size(resource);
   info->mem[0].memtype = UIO_MEM_PHYS;
   info->mem[0].internal_addr = devm_ioremap_resource(&pdev->dev, resource);
-  iowrite32(ENCODER_INIT, info->mem[0].internal_addr + sizeof(u32));
-  mb();
   dev_set_drvdata(&pdev->dev, info);
   retval = uio_register_device(&pdev->dev, info);
   if(retval){
