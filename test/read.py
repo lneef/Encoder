@@ -3,12 +3,14 @@ import time
 import sys
 import mmap
 
+FILE_SIZE = 4096
+
 def test_read(file_name: str):
     with open(file_name, 'r+b') as f:
-        mmio = mmap.mmap(f.fileno(), 16)
+        mmio = mmap.mmap(f.fileno(), FILE_SIZE, mmap.MAP_SHARED)
         try:
             while True:
-                print(mmio[:8])
+                print(int.from_bytes(mmio[:8], byteorder='little', signed=True))
                 time.sleep(1)
         except KeyboardInterrupt:
             pass
