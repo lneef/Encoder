@@ -27,14 +27,18 @@ static int debounce_driver_probe(struct platform_device *dev)
       return -ENOMEM;
   retval = 0;
   irqno = platform_get_irq(dev, 0);
+  printk("debounce_driver: irqno = %d\n", irqno);
   if(irqno < 0){
       retval = irqno;
       goto end;
   }
-  info->name = NAME;
+  info->name = "debouncer";
+  info->version = "0.0.1";
   info->irq_flags = IRQF_TRIGGER_RISING;
   info->irq = irqno;
 
+  dev_set_drvdata(&dev->dev, info);
+  dev->name = NAME;
   dev->resource = NULL;
   dev->num_resources = 0;
   retval = uio_register_device(&dev->dev, info);
