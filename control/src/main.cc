@@ -20,14 +20,12 @@
 
 static const double K[4] = {1.0, 2.0, 3.0, 4.0};
 
-/* Sampling time [s], e.g., 1 kHz loop -> T = 0.001 */
-static constexpr double T = 0.02;
-
 /* Example saturations for the cart's physical movement or motor torque. */
-static const double CART_MAX_POS = 1.0; // 1 meter from center
-static const double CART_MIN_POS = -1.0;
 static const double MOTOR_MAX_TORQUE = 10.0;
 static const double MOTOR_MIN_TORQUE = -10.0;
+
+static constexpr int64_t PULSES_PER_MIN = 2048 * 4;
+static constexpr double TO_RADIANS = 2 * M_PI / PULSES_PER_MIN;
 
 Eigen::Matrix4d A_d;
 Eigen::Matrix4d Q;
@@ -37,7 +35,6 @@ Eigen::Matrix4d R;
 Eigen::Vector4d B_d;
 Eigen::Vector4d x_est;
 Eigen::Vector4d K_HAC;
-
 
 typedef struct {
   double x;      // cart position
@@ -62,9 +59,24 @@ enum AxisState {
   AXIS_STATE_ENCODER_HALL_PHASE_CALIBRATION = 13
 };
 
+[[gnu::hot]] static constexpr double to_radians(int64_t value) {
+  return static_cast<double>(value) * TO_RADIANS;
+}
+
+[[gnu::hot]] static constexpr int64_t normalize(int64_t value) {
+  constexpr int64_t threshold = PULSES_PER_MIN >> 1;
+  value = value % PULSES_PER_MIN;
+  if (value > threshold) {
+    value -= PULSES_PER_MIN;
+  } else if (value <= -threshold) {
+    value += PULSES_PER_MIN;
+  }
+  return value;
+}
+
 class SimpleODrive {
 private:
-#if BOOST_VERSION >= 106600    
+#if BOOST_VERSION >= 106600
   boost::asio::io_context io;
 #else
   booboost::asio::io_service io;
@@ -102,25 +114,26 @@ public:
 
   void set_torque(float tq) {
     std::string temp = "c 0 " + std::to_string(tq);
-
     write(temp);
   }
 };
 
 void estimateState(PendulumState *state, const SensorData *sensor,
-                   const double T, double force) {
+                   const double dt, double force) {
 
   // Update previous values
   double prev_position = state->x;
   double prev_angle = state->theta;
 
   // Construct sensor measurements
-  double position = (sensor->cartPosition);
-  double velocity =
-      (position - prev_position) / T; // (position - previous_position) / dt
-  double angle = (sensor->pendulumAngle);
-  double angular_velocity =
-      (angle - prev_angle) / T; // (angle - previous_angle) / dt
+  double position = to_radians(sensor->cartPosition);
+
+  // (position - previous_position) / dt
+  double velocity = (position - prev_position) / dt;
+  double angle = to_radians(normalize(sensor->pendulumAngle));
+
+  // (angle - previous_angle) / dt
+  double angular_velocity = (angle - prev_angle) / dt;
 
   // Construct the measurement vector
   Eigen::Vector4d y;
@@ -153,9 +166,7 @@ void estimateState(PendulumState *state, const SensorData *sensor,
 
 double computeControl(const PendulumState *state, double force) {
   Eigen::Vector4d temp_x;
-
   temp_x << state->x, state->dx, state->theta, state->dtheta;
-
   auto temp = A_d * temp_x + B_d * (force / 0.014);
   force = temp.dot(K_HAC) * 0.014;
   return force;
@@ -198,9 +209,8 @@ int main(void) {
   SensorController<EncoderController, ButtonController> sensor_controller(
       EncoderController("/dev/uio6"),
       ButtonController("/dev/uio4", "/dev/uio5"));
-
+  auto start_time = boost::chrono::high_resolution_clock::now();
   com.init_odrive();
-
   for (int iteration = 0; iteration < 10000; iteration++) {
     /************************************************************
      * 1) Read Sensor Data
@@ -218,11 +228,16 @@ int main(void) {
     }
 
     sensor_controller.handle(sensorData);
+    auto sampling_time = boost::chrono::high_resolution_clock::now();
+    auto elapsed_time = std::max(
+        boost::chrono::duration<double>(sampling_time - start_time).count(),
+        std::numeric_limits<double>::epsilon());
+    start_time = sampling_time;
 
     /************************************************************
      * 2) Estimate / Update State
      ************************************************************/
-    estimateState(&currentState, &sensorData, T, u);
+    estimateState(&currentState, &sensorData, elapsed_time, u);
 
 #ifdef DEBUG
     printf("[DEBUG] Measured Position: %f, Angle: %f\n",
@@ -236,14 +251,10 @@ int main(void) {
      * 3) Compute Control
      ************************************************************/
     u = computeControl(&currentState, u);
-
-    /* Safety check for saturations or boundary conditions */
-    if (currentState.x >= CART_MAX_POS && u > 0.0) {
-      /* Prevent pushing further right if at boundary */
-      u = 0.0;
-    } else if (currentState.x <= CART_MIN_POS && u < 0.0) {
-      /* Prevent pushing further left if at boundary */
-      u = 0.0;
+    if (sensorData.leftBoundary && u > 0.0) {
+      u = 0;
+    } else if (sensorData.rightBoundary && u < 0.0) {
+      u = 0;
     }
 
     /* Motor torque saturation check */

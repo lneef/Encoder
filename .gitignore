@@ -5,4 +5,5 @@ build/
 *.so
 *.mod
 *.ko
-*.mod.o 
+*.mod.o
+control/main
