@@ -37,11 +37,10 @@ static int debounce_driver_probe(struct platform_device *dev)
   info->irq_flags = IRQF_TRIGGER_RISING;
   info->irq = irqno;
 
-  dev_set_drvdata(&dev->dev, info);
   dev->name = NAME;
   dev->resource = NULL;
   dev->num_resources = 0;
-  retval = uio_register_device(&dev->dev, info);
+  dev->dev.platform_data = info;
 end:
   return retval;
 }
@@ -49,22 +48,12 @@ end:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
 static void debounce_driver_remove(struct platform_device* dev)
 {
-    struct uio_info* info = dev_get_drvdata(&dev->dev);
-    if(!info){
-        printk("debounce_driver: uio_info is null\n");
-        return;
-    }
-    uio_unregister_device(info);
+    printk("debounce_driver: removing\n");
 }
 #else
 static int debounce_driver_remove(struct platform_device* dev)
 {
-    struct uio_info* info = dev_get_drvdata(&dev->dev);
-    if(!info){
-        printk("debounce_driver: uio_info is null\n");
-        return -ENODEV;
-    }
-    uio_unregister_device(info);
+    printk("debounce_driver: removing\n");
     return 0;
 }
 #endif
