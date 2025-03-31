@@ -7,11 +7,13 @@
 #include <eigen3/Eigen/Dense>
 #include <math.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <iostream>
 
 static const double MOTOR_MAX_TORQUE = 10.0;
 static const double MOTOR_MIN_TORQUE = -10.0;
@@ -108,6 +110,15 @@ public:
     std::string temp = "c 0 " + std::to_string(tq);
     write(temp);
   }
+
+  void set_motor_idel() {
+    enum AxisState idle = AXIS_STATE_IDLE;
+
+    std::string command_calibrate =
+        "w axis0.requested_state " + std::to_string(idle);
+
+    write(command_calibrate);
+  }
 };
 
 void estimateState(PendulumState *state, const SensorData *sensor,
@@ -123,6 +134,7 @@ void estimateState(PendulumState *state, const SensorData *sensor,
   // (position - previous_position) / dt
   double velocity = (position - prev_position) / dt;
   double angle = to_radians(normalize(sensor->pendulumAngle));
+  std::cout << "angle: " << angle << std::endl;
 
   // (angle - previous_angle) / dt
   double angular_velocity = (angle - prev_angle) / dt;
@@ -166,15 +178,22 @@ double computeControl(const PendulumState *state, double force) {
 
 SimpleODrive com("/dev/ttyACM0", 115200);
 
+void signal_handler(int signum) {
+  static_cast<void>(signum);  
+  com.set_motor_idel();
+}
+
 /************************************************************
  * Main Function
  ************************************************************/
-int main(void) {
+int main(int argc, char* argv[]) {
 /* In a real system, you might initialize hardware,
    set up timers, open ports, etc. */
 #ifdef DEBUG
   printf("Initializing Inverted Pendulum Controller...\n");
 #endif
+
+  signal(SIGINT, signal_handler);
 
   PendulumState currentState{};
   SensorData sensorData{};
@@ -193,8 +212,8 @@ int main(void) {
   x_est << 0.0, 0.0, 0.0, 0.0;
 
   P_est = Eigen::Matrix4d::Identity() * 0.1;
-
-  K_HAC << -4, -14, 68, 7;
+  K_HAC << std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]), std::atoi(argv[4]); //-4, -14, 68, 7;
+  //K_HAC << -4, -14, 68, 7;
 
   double u = 0;
 
