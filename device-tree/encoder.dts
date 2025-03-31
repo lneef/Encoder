@@ -15,7 +15,7 @@
     };
     debouncer_1 {
         compatible = "debouncer";
-        interrupts = <0 90 1>;
+        interrupts = <0 104 1>;
         interrupt-parent = <&gic>;
     };
 };
