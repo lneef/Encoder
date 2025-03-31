@@ -261,7 +261,7 @@ int main(void) {
      ************************************************************/
     com.set_torque(u);
 
-    usleep(1000);
+    usleep(20000);
   }
 
 #ifdef DEBUG

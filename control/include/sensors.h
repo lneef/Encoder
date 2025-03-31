@@ -22,10 +22,6 @@ public:
         mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     regs->encoder[0].position = init[0];
     regs->encoder[1].position = init[1];
-#ifdef __aarch64__
-    #include <arm_acle.h>
-    __dmb(_ARM_BARRIER_SY);
-#endif
     close(fd);
   }
   EncoderController(EncoderController &&other)
