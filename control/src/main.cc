@@ -13,14 +13,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#define POS 0.0015339807878
-#define ANG 0.000214757310
-
-// Yada Yada Bad Code :(
-
-static const double K[4] = {1.0, 2.0, 3.0, 4.0};
-
-/* Example saturations for the cart's physical movement or motor torque. */
 static const double MOTOR_MAX_TORQUE = 10.0;
 static const double MOTOR_MIN_TORQUE = -10.0;
 
@@ -36,12 +28,12 @@ Eigen::Vector4d B_d;
 Eigen::Vector4d x_est;
 Eigen::Vector4d K_HAC;
 
-typedef struct {
+struct PendulumState {
   double x;      // cart position
   double dx;     // cart velocity
   double theta;  // pendulum angle
   double dtheta; // pendulum angular velocity
-} PendulumState;
+};
 
 enum AxisState {
   AXIS_STATE_UNDEFINED = 0,
@@ -184,8 +176,8 @@ int main(void) {
   printf("Initializing Inverted Pendulum Controller...\n");
 #endif
 
-  PendulumState currentState = {0};
-  SensorData sensorData = {0};
+  PendulumState currentState{};
+  SensorData sensorData{};
 
   A_d << 1.0000, 0.0190, 0.0001, -0.0000, 0, 0.9059, 0.0053, -0.0012, 0,
       -0.0022, 1.0047, 0.0189, 0, -0.2151, 0.4612, 0.8926;
@@ -207,11 +199,11 @@ int main(void) {
   double u = 0;
 
   SensorController<EncoderController, ButtonController> sensor_controller(
-      EncoderController("/dev/uio6"),
+      EncoderController("/dev/uio6", {0, 4096}),
       ButtonController("/dev/uio4", "/dev/uio5"));
   auto start_time = boost::chrono::high_resolution_clock::now();
   com.init_odrive();
-  for (int iteration = 0; iteration < 10000; iteration++) {
+  while (1) {
     /************************************************************
      * 1) Read Sensor Data
      ************************************************************/
@@ -268,6 +260,8 @@ int main(void) {
      * 4) Actuate
      ************************************************************/
     com.set_torque(u);
+
+    usleep(1000);
   }
 
 #ifdef DEBUG

@@ -66,7 +66,7 @@ public:
       struct epoll_event ev;
       ev.events = EPOLLIN;
       ev.data.fd = fd[i];
-      epoll_ctl(epollfd, EPOLL_CTL_ADD, fd[i], &ev);
+      epoll_ctl(epollfd, EPOLL_CTL_ADD | EPOLLET, fd[i], &ev);
     }
   }
 
