@@ -22,6 +22,10 @@ public:
         mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
     regs->encoder[0].position = init[0];
     regs->encoder[1].position = init[1];
+#ifdef __aarch64__
+    #include <arm_acle.h>
+    __dmb(_ARM_BARRIER_SY);
+#endif
     close(fd);
   }
   EncoderController(EncoderController &&other)
@@ -56,8 +60,6 @@ public:
     epollfd = epoll_create1(0);
     fd[0] = open(f1.data(), O_RDWR | O_NONBLOCK);
     fd[1] = open(f2.data(), O_RDWR | O_NONBLOCK);
-    for (auto file : fd)
-      write(file, &IRQ_ENABLE, sizeof(int));
     irqs[0] = 0;
     irqs[1] = 0;
     for (int i = 0; i < 2; i++) {
@@ -96,12 +98,10 @@ public:
     if (ev.events & EPOLLIN) {
       if (ev.data.fd == fd[0]) {
         read(fd[0], &irqs[0], sizeof(int));
-        write(fd[0], &IRQ_ENABLE, sizeof(int));
         data.leftBoundary = true;
       }
       if (ev.data.fd == fd[1]) {
         read(fd[1], &irqs[1], sizeof(int));
-        write(fd[1], &IRQ_ENABLE, sizeof(int));
         data.rightBoundary = true;
       }
     }
@@ -110,7 +110,6 @@ private:
   int epollfd;
   std::array<int, 2> fd;
   std::array<int, 2> irqs;
-  static constexpr int IRQ_ENABLE = 0x1;
 };
 
 template <typename... C>
